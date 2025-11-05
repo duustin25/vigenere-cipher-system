@@ -172,7 +172,7 @@ class VigenereController extends Controller
         $mode      = 'encode';
         $mod       = (int) $validated['mod'];
 
-        // 2. Run the core calculation logic
+      
         [$ciphertext, $details, $error] = $this->runCipherCalculation($plaintext, $key, $mode, $mod);
 
         // 3. Handle Errors (Return a 400 Bad Request if validation/cipher logic fails)
