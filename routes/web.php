@@ -17,7 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 });
 
-//api route
+    //api route 
 Route::post('/api/encrypt', [VigenereController::class, 'calculateApi']);
 Route::get('/', [VigenereController::class, 'index'])->name('vigenere.index');
 Route::post('/vigenere/process', [VigenereController::class, 'process'])->name('vigenere.process');
