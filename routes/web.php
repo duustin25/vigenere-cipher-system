@@ -18,10 +18,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
     //api route 
-Route::post('/api/encrypt', [VigenereController::class, 'calculateApi']);
+//Route::post('/api/encrypt', [VigenereController::class, 'calculateApi']);
 Route::get('/', [VigenereController::class, 'index'])->name('vigenere.index');
 Route::post('/vigenere/process', [VigenereController::class, 'process'])->name('vigenere.process');
 Route::get('/vigenere/result', [VigenereController::class, 'result'])->name('vigenere.result');
 
 
 require __DIR__.'/settings.php';
+ 
