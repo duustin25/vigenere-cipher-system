@@ -1,9 +1,13 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\VigenereController; 
+use App\Http\Controllers\VigenereController;
+
+Route::get('/user', function (Request $request) {
+    return $request->user();
+})->middleware('auth:sanctum');
 
 
-// Existing route for the Vigenere index page (GET /)
-Route::get('/', [VigenereController::class, 'index'])->name('vigenere.index');
-
+Route::post('/encrypt', [VigenereController::class, 'calculateApi']);
+Route::post('/decrypt', [VigenereController::class, 'decryptApi']);

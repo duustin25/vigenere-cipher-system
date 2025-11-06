@@ -57,14 +57,14 @@ class VigenereController extends Controller
         
         foreach ($plainTextChars as $ch) {
              if (strpos($alphabet, $ch) === false) {
-                 $validationError = ['plaintext' => "Invalid character '{$ch}' in plaintext. Allowed: {$modLabel}."];
+                 $validationError = ['plaintext' => "Invalid character '{$ch}' in input text. Allowed: {$modLabel}."];
                  return ['', [], $validationError];
-            }
+             }
         }
 
 
         // --- Cipher Computation ---
-        $ciphertext = '';
+        $resultText = ''; // Renamed to be generic (plaintext or ciphertext)
         $details    = [];
         $keyIndex   = 0;
         $keyLength  = strlen($key);
@@ -78,12 +78,13 @@ class VigenereController extends Controller
             $kVal  = strpos($alphabet, $kChar);
             $keyIndex++;
 
+            // Core Logic: Addition for Encode, Subtraction for Decode
             $cVal = $mode === 'encode'
                 ? ($pVal + $kVal) % $mod
                 : ($pVal - $kVal + $mod) % $mod;
 
             $cChar = $alphabet[$cVal];
-            $ciphertext .= $cChar;
+            $resultText .= $cChar;
 
             $formula = $mode === 'encode'
             ? "($pVal + $kVal) mod $mod = $cVal"
@@ -99,7 +100,7 @@ class VigenereController extends Controller
             ];
         }
 
-        return [$ciphertext, $details, null]; // Success: return ciphertext, details, no error
+        return [$resultText, $details, null]; // Success: return resultText (ciphertext or plaintext), details, no error
     }
 
     /**
@@ -135,7 +136,15 @@ class VigenereController extends Controller
         $mod       = (int) $validated['mod'];
 
         // Use the new helper function
-        [$ciphertext, $details, $error] = $this->runCipherCalculation($plaintext, $key, $mode, $mod);
+        [$resultText, $details, $error] = $this->runCipherCalculation($plaintext, $key, $mode, $mod);
+        
+        // We ensure 'plaintext' is the *input* text and 'ciphertext' is the *output* text for the session
+        if ($mode === 'decode') {
+            $plaintext = $resultText; // The decrypted result is the new plaintext for display
+            $ciphertext = strtoupper($validated['plaintext']); // The original input was the ciphertext
+        } else {
+             $ciphertext = $resultText;
+        }
 
         if ($error) {
             // Revert back to original request names for back() redirect
@@ -143,11 +152,11 @@ class VigenereController extends Controller
         }
 
         return redirect()->route('vigenere.index')->with( [
-            'plaintext'  => $plaintext,
+            'plaintext'  => $plaintext, // The final plaintext (input or output)
             'key'        => $key,
             'mode'       => $mode,
             'mod'        => $mod,
-            'ciphertext' => $ciphertext,
+            'ciphertext' => $ciphertext, // The final ciphertext (input or output)
             'details'    => $details,
         ]);
     }
@@ -159,7 +168,7 @@ class VigenereController extends Controller
      */
     public function calculateApi(Request $request): JsonResponse
     {
-        // 1. Validate API-specific parameters (using lowerCamelCase from the front-end)
+        // 1. Validate API-specific parameters
         $validated = $request->validate([
             'plainText' => 'nullable|string',
             'key'       => 'required|string',
@@ -168,11 +177,12 @@ class VigenereController extends Controller
 
         $plaintext = strtoupper($validated['plainText'] ?? '');
         $key       = strtoupper($validated['key']);
-        // The front-end app is an encryption form, so we hardcode 'encode' for the API mode
+        // Hardcode 'encode' for this API mode
         $mode      = 'encode';
         $mod       = (int) $validated['mod'];
 
       
+        // The result will be the ciphertext
         [$ciphertext, $details, $error] = $this->runCipherCalculation($plaintext, $key, $mode, $mod);
 
         // 3. Handle Errors (Return a 400 Bad Request if validation/cipher logic fails)
@@ -184,11 +194,51 @@ class VigenereController extends Controller
             ], 400);
         }
 
-        // 4. Return Success (Returns clean JSON to n8n)
+        // 4. Return Success
         return response()->json([
             'status' => 'success',
-            // CRITICAL: This is the field n8n and the front-end are expecting
             'ciphertext' => $ciphertext,
+        ], 200);
+    }
+
+
+    /**
+     * 🔓 API Endpoint: Receives POST request for Decryption (mapped to /api/decrypt).
+     * It expects 'ciphertext', 'key', and 'mod' from the JSON body.
+     */
+    public function decryptApi(Request $request): JsonResponse
+    {
+        // 1. Validate API-specific parameters
+        $validated = $request->validate([
+            // We expect 'ciphertext' (encrypted text) for decryption
+            'ciphertext' => 'nullable|string',
+            'key'        => 'required|string',
+            'mod'        => 'required|integer|min:1|max:200',
+        ]);
+
+        $ciphertext = strtoupper($validated['ciphertext'] ?? '');
+        $key        = strtoupper($validated['key']);
+        // CRITICAL: Set the mode to 'decode' for decryption
+        $mode       = 'decode'; 
+        $mod        = (int) $validated['mod'];
+
+        // 2. Run the decryption calculation. The result is the plaintext.
+        [$plaintext, $details, $error] = $this->runCipherCalculation($ciphertext, $key, $mode, $mod);
+
+        // 3. Handle Errors (Return a 400 Bad Request if validation/cipher logic fails)
+        if ($error) {
+             return response()->json([
+                'status' => 'error',
+                'message' => 'Input validation failed during cipher calculation.',
+                'errors' => $error,
+            ], 400);
+        }
+
+        // 4. Return Success (Returns clean JSON with the decrypted text)
+        return response()->json([
+            'status' => 'success',
+            // Return the decrypted text in the 'plaintext' field
+            'plaintext' => $plaintext,
         ], 200);
     }
 
